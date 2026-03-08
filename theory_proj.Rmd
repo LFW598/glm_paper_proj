@@ -1,0 +1,413 @@
+---
+title: "BST 223: GEEs (Theory Project)"
+author: "Lucas Webster"
+output: pdf_document
+bibliography: references.bib
+---
+
+# Introduction
+
+In the paper titled *Longitudinal data analysis using generalized linear models* (@10.1093/biomet/73.1.13), Kung-Yee Liang and Scott L. Zeger extend Generalized Linear Models (GLMs) to work with longitudinal data. GLM's traditionally work with one observation per subject; longitudinal data works with multiple observations over time for each subject, meaning a correlational structure exists between the multiple outcomes collected for a single subject. They give a class of estimating equations, deemed Generalized Estimating Equations (GEEs), which factor in within-subject correlation to consistently and efficiently estimate regression parameters, and the variance of said regression parameters, without even specifying the joint distribution of a single subject's observations across time. 
+
+The approach to these GEEs is related to the quasi-likelihood approach for the following reasons. In the quasi-likelihood approach in standard non-longitudinal GLMs, a distribution for the outcome is not assumed, but score equations are well defined for the outcome, allowing for accurate parameter estimation with a suitable link function in spite of the lack of distributional assumption. While GEE's do assume a marginal distribution for each outcome, they do not assume a joint distribution for the 'within-subject' observations, and instead use score-like estimating equations with defined mean and variance (from the assumed marginal distribution of each within-subject observation) to estimate the regression parameters, just like quasi-likelihood. Essentially, just like the traditional quasi-likelihood approach, each subject contributes a quasi-score to parameter estimation, but that quasi-score is now made up of a longitudinal observation.
+
+I will begin this analysis by discussing the historical context of the paper and the existing theory and methods it improves on, then provide the most important results from the paper and context surrounding them, and then critically evaluate the method, and finally connect it to course material and give an example of it in use.
+
+# Historical and Theoretical Context
+
+## Historical Background
+
+For Gaussian outcomes, methods for analyzing longitudinal data in a regression context had already been well developed. The breakthrough of this paper was transferring such development to non-Gaussian responses. Work with Gaussian data had the benefit of assuming a Multi-Variate Gaussian joint distribution for within-subject observations. Non-Gaussian outcomes cannot make this assumption. Work on non-Gaussian responses had occurred in the past, but was limited in scope. For example, in the case of binary data, some progress was made in the half decade preceding this paper. This included regression for which correlation between subject observations was interchangeable (constant correlation), and methods involving time-independent covariates (the same set of covariates for every within-subject observation). The difficulty was finding a suitable joint model for the 'within-subject' observations. This paper breaks through this barrier, providing equations to estimate the regression parameters with minimal assumptions on the joint distribution of the within subject responses, and which are asymptotically Multi-Variate Gaussian. Furthermore, no assumption is made about the joint distribution, meaning these methods build off of Wederburn's quasi-likelihood methods put forth in 1974.
+
+GEE methods are still used widely to this day in econometrics and especially biostatiscs where longitudinal data is incredibly common and Gaussian outcomes are not.
+
+## Theoretical Context
+
+I will now set up the notation used in the paper, and for the rest of this report. I have taken the liberty of changing some notation from the paper to notation consistent with course notation. The first '$i$' index indicates the observation number. The second index indicates the 'time index' (5th observation for the $i^{th}$ subject per say), and the third index indicates the covariate index (p total covariates). Hence with respect to the collected data, we have the following notation.
+
+$$
+Y_i = \begin{pmatrix}
+y_{i,1} \\
+... \\
+y_{i,n_i}
+\end{pmatrix} : (n_i \times 1), 
+\quad
+X_i = \begin{pmatrix}
+x_{i,1,1}, ..., x_{i,1,p} \\
+... \\
+x_{i,n_i,1}, ..., x_{i,n_i,p}
+\end{pmatrix} : (n_i \times p),
+\quad 
+R(\alpha) : (n_i \times n_i), \\
+\quad
+i \in \{1, ..., K\}
+$$
+
+In summary, $Y_i$ is the vector of time-indexed observations for the $i^{th}$ subject, $X_i$ is the matrix of time indexed covariates for the $i^{th}$ subject, and $R(\alpha)$ the correlation matrix representing the correlation between each subject's $n_i$ observations. This matrix structure is fixed, not estimated, and assumed by the user. ($\alpha$ itself is estimated, this is to be discussed later). Let $n_i = n$ without a loss in generality.
+
+As mentioned above, we assume $y_{it}, t \in \{1, ..., n\}$ to marginally be from a specified exponential dispersion family. Hence, with course consistent notation, $E[Y_{it}] = b'(\theta_{it})$ and $Var[Y_{it}] = b''(\theta_{it}) * \phi$. Furthermore, $b'(\theta_{it}) = \mu_{it}$, $g(\mu_{it}) = \eta_{it}$, and hence under certain regularity conditions, we can define $h=(b')^{-1}\circ g^{-1}$ such that $\theta_{it} = h(\eta_{it})$. We have the usual notation that $\eta_{it} = X_{it}\beta$. Finally, as far as parameters we seek to estimate, we have...
+
+$$
+\beta = \begin{pmatrix}
+\beta_{1} \\
+... \\
+\beta_{K}
+\end{pmatrix} : (K \times 1),
+\quad
+\alpha : (s \times 1)
+$$
+
+Where $s$ is the number of entries in $\alpha$ based on the structure of the correlation matrix. For example, for exchangeable correlation or auto-correlation, $s=1$, 
+
+# Technical Analysis
+
+## Independance Estimating Equations
+
+Before we discuss Generalize Estimating Equations, we will discuss Independence Estimating Equations (IEEs). This is the basic longitudinal analogue to the quasi-likelihood GLM approach. It will serve as a foundation for the GEEs.
+
+These Independence Estimating Equations have the following assumption, within-subject observations are independent of each other. This is likely unrealistic, as observations from the same subject should be correlated with each other due to the nature of their collection from the same subject, but the groundwork laid by these Independence Equations is valuable for GEEs, so we proceed.
+
+Under standard likelihood analysis in the quasi-likelihood setting, the score equation takes the form...
+
+$$
+U(\beta) = \sum_{i=1}^KX_{i}^T\Delta_iS_i = 0, \quad S_i = Y_i - \mu_i: (n \times 1),
+\quad \Delta_i = diag\{\frac{d\theta_{it}}{d\eta_{it}}\}: (n \times n)
+$$
+
+The solution to the above produces $\hat\beta_I$, the parameter estimate under the independence assumption. Observe the above to be an exact analogue to the traditional GLM quasi-score, just vectorized such that $Y_i$ contains multiple observations.
+
+This above estimator is consistent for $\beta$, and with 
+
+$$
+H_I(\beta) = \sum_{i=1}^KX_i^T\Delta_iA_i\Delta_iX_i: (p \times p), 
+\quad
+A_i = diag\{b''(\theta_{it})\}: (n \times n)
+$$
+
+has variance
+
+$$
+V_I = H_I(\beta)^{-1}\sum_{i=1}^K[X_i^T\Delta_iCov(Y_i)\Delta_iX_i]H_I(\beta)^{-1}
+$$
+
+As mentioned above, $\hat\beta_I$ is consistent for $\beta$, we furthermore have the result that $\sqrt{K}(\hat{\beta_I} - \beta)$ converges to a Multivariate Gaussian as $K$ gets large with mean 0 and covariance matrix $\lim_{K \to \infty} KV_I$. This can be seen as $U(\beta)$ is a sum of mean 0 random vectors with finite variance, hence CLT applies and it's Multi-Variate Gaussian. A Taylor Expansion of $U(\hat\beta_I) = 0$ around $\beta$ can then be used to show the above result by equating $U(\hat\beta) = U(\beta) + o_p(1)$ via the taylor expansion. A consistent variance estimator can be simply found by replacing $Cov(Y_i)$ with the covariance estimate of $S_iS_i^T$.
+
+Now that we have established a base case with a clear connection to non-longitudinal quasi-score, we will proceed to GLMs, which removes the independence assumption made above.
+
+## Generalized Estimating Equations
+
+Now we discuss the Generalized Estimating Equations which consistently estimate $\beta$, and of which take into account $R(\alpha)$, the correlation between the within subject observations in order to increase efficiency of this estimation. As mentioned above, if we assume independence among the within-subject observations, we still get consistent estimators for $\beta$ regardless of the truth of this independence assumption, but their efficiency is lower compared to these to be presented GEE methods in cases where independence does not hold and our idea for the correlational structure is well founded.
+
+Before discussing the GEEs, let us establish the structure of its components.
+
+$$
+V_i = A_i^{\frac{1}{2}}R(\alpha)A_i^{\frac{1}{2}}*\phi : (n \times n),
+\quad
+D_i = \frac{d{\mu_i}}{d\beta} = A_i * \Delta_i * X_i: (n \times p)
+\quad
+$$
+
+Note that if $R(\alpha)$ is the true correlation matrix, $V_i = Cov(Y_i)$, and also that if $R(\alpha) = I_n$, we are assuming independence among the within subject observations.
+
+Now to **define the Generalized Estimating Equations:**
+
+$$
+\sum_{i=1}^K D_i^TV_i^{-1}S_i = 0
+$$
+
+The above equation collapses to the independence estimating equation when independence is assumed as mentioned above. We observe this with the heuristic $A_i^{\frac{1}{2}}A_i^{\frac{1}{2}}A_i^{-1} = I_n$.
+
+Now we note the critical difference between the Independence Estimating Equations and General Estimating Equations, $\alpha$. The GEE's factor in the correlation matrix $R(\alpha)$ into their variance calculation, resulting in a set two parameters which need to be estimated, $\alpha$ and $\beta$.
+
+Hence, altering the IEEs now to include this correaltion matrix in the variance matrix.
+
+$$
+D_i^TV_i^{-1}S_i = U_i(\beta, \alpha)
+$$
+
+Hence, with an estimate for $\alpha$ being $\hat\alpha(Y, \beta, \phi)$, where $\phi$ itself can be estimated by $\hat{\phi}(Y, \beta)$, we have
+
+$$
+\sum_{i=1}^KU_i(\beta, \alpha) \quad \text{estimated by} \quad \sum_{i=1}^KU_i(\beta, \hat\alpha\{\beta, \hat\phi\})
+$$
+
+And solving
+
+$$
+\sum_{i=1}^KU_i(\beta, \hat\alpha\{\beta, \hat\phi\}) = 0
+$$
+
+provides the GEE estimate of $\beta$, $\hat\beta_G$.
+
+With $\hat\alpha$|$\beta$,$\phi$ and $\hat\phi$|$\beta$ consistent for $\alpha$ and $\phi$ respectively, and the regularity condition that $\frac{d\hat\alpha}{d\phi} \leq O_p(1)$ ($\hat\alpha$ doesn't explode for changes in $\phi$), then much like the Independence Estimating Equations, we have that $\sqrt{K}(\hat\beta_G - \beta)$ is Multi-Variate Gaussian with mean 0 and covariance matrix defined as
+
+$$
+\lim_{K \to \infty} K(\sum_{i=1}^KD_i^TV_i^{-1}D_i)^{-1}(D_i^TV_i^{-1}cov(Y_i)V_i^{-1}D_i^T)(\sum_{i=1}^KD_i^TV_i^{-1}D_i)
+$$
+
+The proof of this is similar to the one described for the Independance Estimating Equations, using a Taylor Expansion and is ommitted here but included in the appendix of the paper. Essentially, $U(\beta, \hat\alpha)$ can be taylor expanded around $\alpha$ in such a way that if our $\hat\alpha$ is consistent, $U(\beta, \hat\alpha) = U(\beta, \alpha) + o_p(1)$. Hence $U(\beta, \hat\alpha)$ and $U(\beta, \alpha)$ are distributionally equivalent. Now we know again since the quasi-score is a sum of mean 0 random vectors with finite variance, CLT will apply, and the RHS is multivariate Gaussian, and then the LHS will be as well. Now that $\alpha$ is accounted for, the IEE arguement with the taylor expansion works the same way in the case of $\hat\beta_G$, and we have the result.
+
+The assumptions above are necessary, as the estimate of $\beta$ depends on $\alpha$ and hence $\phi$. Hence if these are biased, $\hat\beta_G$ will be biased, and if $\frac{\hat\alpha}{\phi}$ isn't stochastically bounded, then our estimate of $\beta$, $\hat\beta_G$ will naturally fail to be stochastically bounded as it depends on our estimation of $\alpha$ which depends on $\phi$.
+
+Observe the variance of $\hat\beta_G$, $V_G$, to be the inner component of this limit (everything but the K scaling), and again with the correlation matrix set to the identity (an assumption of independence) this variance collapses to that of the independence estimating equations. Furthermore, the variance estimate $\hat V_G$ can again be obtained from replacing $Cov(Y_i)$ with $S_iS_i^T$, and this estimate is consistent.
+
+Also note that $\hat\beta_G$ is consistent regardless of choice of $R$, or of $\hat\alpha$ and $\hat\phi$ so long as the latter two are consistent.
+
+### Estimating $\alpha$ and $\phi$
+
+Estimators for $\alpha$ and $\phi$ depend on the value of $\beta$ as shown above, and hence will be estimated in the same computational iterative process in which $\beta$ is estimated. To examine the proposed estimators, lets first denote the formula for the pearson residuals.
+
+$$
+\hat{r}_{it} = \frac{y_{it} - \hat\mu_{it}}{\sqrt{v(\hat{\mu}_{it}})},  \quad \text{where} \quad Var(Y) = \phi*v(\mu)
+$$
+
+We have the standard estimator of the dispersion parameter of the sum of squared pearson residuals divided by the the degrees of freedom of our model, translated to the longitudinal analogue. It takes the following formulation.
+
+$$
+\hat{\phi} = \sum_{i=1}^K\sum_{t=1}^{n_i}\frac{\hat{r}_{it}^2}{N-p}, \quad N = \sum n_i
+$$
+
+A standard estimator for alpha is given in the the following equation.
+
+$$
+\hat{R}_{uv} = \sum_{i=1}^K\frac{\hat{r}_{iu}\hat{r}_{iv}}{N-p}
+$$
+
+Important to re-iterate here is that $R(\alpha)$ is assumed the same across each subject, hence the estimator borrows information from all $K$ subjects. Where $\hat{R}_{uv}$ is the entry in the $u^{th}$ row and $v^{th}$ column of the $R(\alpha)$ matrix. Essentially, one selects a structure for the $R$ matrix, and then uses the above formula to estimate the value of $\alpha$, and then slots the $\alpha$ or aggregate thereof into the entries of the matrix. For example, an exchangeable correlation matrix takes the form of 1 on the diagonal, and $\alpha$ in every other slot. Since a correlation matrix is symmetric, one would calculate $\hat{R}_{uv}$ for every unique unordered pair $(u,v), u \ne v$ and take the average to obtain the singular $\alpha$ estimate needed for an exchangeable correlation assumption.
+
+Other examples of possible $\alpha$ estimators are provided in the paper for different $R(\alpha)$ assumptions such as auto-correlation or m-dependence. Some are further dependent on the $\phi$ and its estimation, others like the above are not.
+
+One example of particular note is that which estimates the entire $R(\alpha)$ matrix in entirety ($s=\frac{1}{2}n(n-1),$ the amount of triangular entries).
+
+$$
+\hat R(\alpha) = \frac{\phi}{K}\sum_{i=1}^KA_i^{-\frac{1}{2}}S_iS_i^TA_i^{-\frac{1}{2}}
+$$
+
+Since the above equation is consistent for the true correlation matrix, the asymptotic variance $V_G$ collapses to
+
+$$
+\lim_{K \to \infty}(\sum_{i=1}^K\frac{D_i^Tcov^{-1}(Y_i)D_i}{K})^{-1}
+$$
+
+A final note about the consistency of both $\hat\beta_G$ and $\hat\beta_I$; they are only consistent under missing data if data is missing at random. If missing data is not random, the estimators will become biased towards the truncation of the non-missing data. Now having covered the General Estimating Equations, their asymptotic properties, and estimation of its defining components, we now turn focus to the algorithmic computation of $\hat\beta_G$.
+
+### Fisher Scoring Modification
+
+Because of the modification to the traditional quasi-likelihood variance structure in the GEE, a refinement to the Fisher Scoring method is provided. The refinement takes the following formulation.
+
+$$
+\hat\beta_{j+1} = \hat\beta_j - (\sum_{i=1}^KD_i^T(\hat\beta_j)V_i^{-1}(\hat\beta_j)D_j(\hat\beta_j))^{-1}(\sum_{i=1}^KD_i^T(\hat\beta_j)V_i^{-1}(\hat\beta_j)S_i(\hat\beta_j)), \quad V_i(\beta) = V_i(\beta, \hat\alpha)
+$$
+
+Where $(\hat\beta_j)$ signals evaluation at $\hat\beta_j$ rather than vector multiplication. Observe this to be the Fisher Scoring Method, as the piece inside the right-hand set of parenthesis, the second summation, is simply $U(\hat\beta_j, \hat\alpha(\hat\beta_j, \hat\phi(\hat\beta_j)))$, and the left-hand set of the parenthesis, the first summation is $E[\frac{dU(\beta, \alpha)}{d\beta}]|_{\hat\beta_j}$, as it uses the limiting value of the preceeding formula, which involves $Cov(Y_i)$ instead of $S_iS_i^T$ meaning it's using 'expected' fisher information rather than observed fisher information. We say 'expected' as this is not **truly** expected fisher information, since we take an expected value over $Y_i$, but there is no specified joint distribution for $Y_i$, and hence no expected fisher information. Our 'expected fisher information' is actually dependent on the specified marginal distribution for $y_{it}$ and the assumed $R$. Hence we see intuitively that for poorly specified $R$, the algorithm will estimate $\beta$ poorly.
+
+The key results and theory to take away from this paper is that the regardless of the correlational structure assumed for the longitudinal data (if any), $\hat\beta_G$ and is consistent and be can standardized to be Multivariate Gaussian. This, along with its consistent estimator for the variance allows for approachable inference in the form of hypothesis testing and confidence intervals, most directly notable are Wald confidence intervals.
+
+# Critical Evaluation
+
+This paper was groundbreaking at its time, and the methods it proposed are still used widely to this day. This paper draws its strength right from the first word of the method: 'General.' As mentioned before, methods were well established for working with Gaussian outcome data, but this was not the case for Non-Guassian outcomes. Some progress had been made with binary data and exchangeable correlation assumptions, but rarely did these methods allow for time dependent covariates. The authors themselves had even provided a method a year prior to this paper that worked for binary longitudinal data, but required time independent covariates.
+
+This paper broke through the barrier of binary data and time independent covariates all at once. GEEs allow for any outcome, Gaussian or Non-Gaussian, and time dependent data, making them ready to tackle any type of longitudinal data out of the gate. The assumption of marginal distribution for each $y_{it}$ is completely reasonable and is the same assumption a traditional GLM makes.
+
+I see the results of this paper being especially relevant to biostatistics, particularly due to the use of the $R$ matrix. To see this, we will first discuss the efficiency of $\hat\beta_G$ under different $R$ assumptions
+
+The end of the paper compares the relative efficiency of $\hat\beta_G$ for different working $R$ matrices to a GEE estimate with $R$ correctly specified at levels of $\alpha = 0.3$ and $\alpha = 0.7$. The entire table can be found in page 7 in the paper, but the critical results are as follows. In the $\alpha = 0.3$ case, correct specification of $R$ had minimal effect. Efficiency for all sets of different assumed $R$ (Independent, 1-Dependence, Exchangeable, Auto-Correlation-1) compared to all true $R$ (the latter 3) was bounded within [0.95 and 0.99]. The real difference came when $\alpha = 0.7$. With $\alpha = 0.7$, an assumed $R$ of independence never had a lower efficiency than 0.74, but when R was assumed non-independent, and assumed incorrectly, efficiency dropped as low as 0.23 in one case, and was lower than the independence assumed $R$ in most other cases.
+
+From this result, we can infer the following, when correlation is thought to be low, one need not be incredibly sure about the structure of the correlation when using GEE methods; efficiency may only be marginally harmed. However, when correlation is thought to be high, one should be very careful in their $R$ assumption. If they are unsure about the structure of $R$, their safest efficiency bet seems to be to just assume independence. However, if one is truly sure about the structure of $R$, a moderate amount of efficiency can be gained from a correct assumption. This is where I see the biostatistical connection. In biostatistical studies in which the outcome is a health measure, the outcome for an individual is likely to be closely tied to the time of the observation, especially for studies measuring medicines which increase lifetime for terminal illness, different chemotherapy treatments for example. Hence, correlation will be high, and with small samples as often is the case in clinical settings, efficiency is of greater importance, and assuming the correct $R$ structure will be helpful. Consultation with a clinical expert in the field is likely to be critical in choosing a sound $R$.
+
+In short, the strength of GEE's lies in situations when correlation is high and $R$ is known, which are likely situations when previous research and expert consultation is available. Otherwise, the Independence Estimating Equations provided in the paper may be of more practical use.
+
+As far as weaknesses in the method, I see almost none. The assumptions in the paper are minimal; simply that subjects are independent, which is needed for GLMs in the first place, and that each subject has a marginal distribution. Even the assumption of this marginal distribution plays a minimal role, simply specifying the first two moments of $Y_{it}$ and honing the choice of link functions. The whole strength of the paper is the broadness of the method. The weakness of the paper is its limited examples scope. The aforementioned example above is with respect to only one covariate, leaving the performance under many predictors up in the air. They also only deal with $s=1$ cases, cases in which only one $\alpha$ is to be estimated. Intuitively, efficiency would be altered with more $\alpha$ to estimate, and it would be interesting to see how increasing $\alpha$, likely leading to a more representative $R$, improves efficiency in the case of properly assumed $R$ and worsens it when $R$ is incorrectly assumed. Particularly interesting would be the performance of the $s=\frac{1}{2}n(n-1)$ estimator for R
+
+$$
+\frac{\phi}{K}\sum_{i=1}^KA_i^{-\frac{1}{2}}S_iS_i^TA_i^{-\frac{1}{2}}
+$$
+
+and specifically how this estimator performs against the independence estimator to answer the question: When unsure of the structure of $R$, should one assume independence, or estimate the entire matrix?
+
+However, the lack of in-depth examples of the method should not be held against Liang and Zeger, this was a groundbreaking new method, and in such a case, speed to publication is critical, you never know if your exact breakthrough is about happen halfway across the world!
+
+Lastly, the paper is a little unclear in its notation throughout. While I have 'translated' much of it to notation familiar to course material, the paper chooses to uses $a(\theta)$ to denote $b(\theta)$, and never once uses the relationship $b'(\theta) = \mu$. Second, they never discuss a link function at all, and instead specify $\theta = h(\eta), \eta = X\beta$, leaving the reader to decipher $h = b'^{-1} \circ g^{-1}$ where $g$ is the link function. This notation may be more palatable to someone unfamiliar with GLM's, but it makes the chain of derivatives involved in variance formulations a little unnecessarily confusing. The paper is also unclear as to the necessity of the marginal distribution specification of $Y_{it}$. While the point is to have a well defined first two moments of each within-subject observation, and familiar exponential family notation, it's not clear whether a distributional assumption of an exponential dispersion family is needed for the marginal distributions of $Y_{it}$, or just the first two moments are needed. Finally, it is also unclear when the paper references $p$ with respect to $\phi$ estimation, whether it is referencing the length of the $\beta$ vector, or the length of the $\beta$ vector and the length of the $\alpha$ vector combined, as that is technically the total amount of parameters in the model.
+
+# Connection to Course Material
+
+Connections to course material are ripe in this paper and in fact, it is a direct extension of course material and mentioned as an extension topic in the syllabus. This method directly takes the quasi-likelihood method from class and extends it to longitudinal data. Observe below to be the independence estimating equations translated down into the quasi-score presented in lecture.
+
+\begin{align*}
+U(\beta) &= \sum_{i=1}^K X_{i}^T\Delta_iS_i \\
+&= \sum_{i=1}^K X_i^Tdiag\{\frac{d\theta_{it}}{d\eta_{it}}\}S_i \\
+&= \sum_{i=1}^K\sum_{t=1}^{n}x_{it}^T\frac{d\theta_{it}}{d\eta_{it}}(y_{it} - \mu_{it}), \quad \text{let n=1}, \\
+&= \sum_{i=1}^K\sum_{t=1}^{1}x_{it}^T\frac{d\theta_{it}}{d\eta_{it}}(y_{it} - \mu_{it}) \\
+&= \sum_{i=1}^Kx_{i}^T\frac{d\theta_{i}}{d\eta_{i}}(y_{i} - \mu_{i}), \quad \text{from exponential family}, \quad \frac{d\theta_i}{d\eta_i} = \frac{1}{b''(\theta_i)}\frac{d\mu_i}{d\eta_i} = \frac{\phi}{Var(Y_i)}\frac{d\mu_i}{d\eta_i} \\
+&= \phi\sum_{i=1}^K x_i^T\frac{y_i - \mu_i}{Var(Y_i)}\frac{d\mu_i}{d\eta_i}
+\end{align*}
+
+Note, whilst $X_i$ to be a matrix of dimension $(n \times p)$ for the $i^{th}$ subject, this matrix reduces to $x_i$, the $(1 \times p)$ vector for the $i^{th}$ subject since $n=1$. Hence, we see the independence estimating equations reduce down to the quasi-score function from lecture. Now, by just bringing in the formulation to include the $R$ matrix as outlined above, we have a clear connection between the non-longitudinal quasi-likelihood formulation from lecture the GEEs presented in this paper.
+
+This paper also covers pearson residuals in their exact formulation as covered in class. Furthermore, the estimation of $\hat\phi$ is the exact formulation for estimating the dispersion parameter in cases which overdispersion is considered in lecture, except now the sample size is scaled by the amount of the within-subject observations present.
+
+# Illustrative Case Study
+
+Now we turn our attention to an example of GEE's in use. The `R` package `geepack` (@geepack) contains functions to implement GEEs and also example datasets to practice them with. The dataset used in this example will be the `dietox` dataset from the aforementioned package. It contains pig weights over 12 weeks measured every 12 weeks of 861 pigs, and covariates such as vitamin E level (3 levels), copper level (3 levels), and cumulative feed intake (continuous and time dependent). Hence a GEE is perfect for this situation, as we have a non-Gaussian outcome (positive continous), and time dependent outcomes and covariates. The following model summaries are ran on the model specified below, with different correlation matrix structures given in the summary caption.
+
+\begin{align*}
+\log(\mu_{it}) = \beta_0 + \beta_1 \, 1\text{EvitL}_{i} + \beta_1 \, 1\text{EvitQ}_{i} + \beta_3 \, 1\text{CuL}_{i} + \beta_4 \,1\text{CuQ}_{i} + \beta_5 \, \text{Feed}_{it} \quad \\
+Y_{it} \sim \text{Gamma}(\mu_{it}, \phi), \quad
+i = 1,\dots,861 \text{ (Pigs)}, \ t = 1,\dots,12 \quad
+\end{align*}
+
+Furthermore, the package estimates $\hat\alpha$ using the $\hat{R}_{uv} = \sum_{i=1}^K\frac{\hat{r}_{iu}\hat{r}_{iv}}{N-p}$ also mentioned above, and $\hat\phi$ using the 'pearson residuals' method given above and discussed in lecture.
+
+```{r example setup, echo=FALSE, warning=FALSE, message=FALSE}
+
+library(geepack) # loading the package
+library(dplyr)
+
+prac_df = dietox
+
+prac_df <- prac_df |> # making sure the inital feed value is 0
+  group_by(Pig) |> 
+  mutate(Feed = ifelse(is.na(Feed), 0, Feed)) |> 
+  ungroup()
+
+prac_df$Litter <- as.factor(prac_df$Litter)
+prac_df$Evit <- factor(prac_df$Evit, levels = c('Evit000', 'Evit100', 'Evit200'), ordered = TRUE)
+prac_df$Cu <- factor(prac_df$Cu, levels = c('Cu000', 'Cu035', 'Cu175'), ordered = TRUE)
+
+model1 <- geeglm(
+  Weight ~ Evit + Cu + Feed, 
+  id = Pig, # indicates how to separate observations
+  data = prac_df, # indicates source of data
+  family = Gamma(link = log), # indicates marginal distribution of each y_{it} and the link function
+  corstr = 'independence', # indicates the structure of R matrix, chosen to be independent
+  scale.fix = FALSE) # indicates whether to estimate the dispersion parameter, or assume it to be 1, 
+                    #estimated here
+
+model2 <- geeglm(
+  Weight ~ Evit + Cu + Feed, 
+  id = Pig, 
+  data = prac_df, 
+  family = Gamma(link = log), 
+  corstr = 'exch', # R chosen to be exchangable correlation
+  scale.fix = FALSE)
+
+model3 <- geeglm(
+  Weight ~ Evit + Cu + Feed, 
+  id = Pig, 
+  data = prac_df, 
+  family = Gamma(link = log), 
+  corstr = 'ar1', # R chosen to be auto-regressive correlation 1
+  scale.fix = FALSE)
+```
+
+```{r example results, echo=FALSE, message=FALSE, warning=FALSE}
+
+library(knitr)
+library(kableExtra)
+
+# making summary tables
+
+sum1 = summary(model1)
+sum2 = summary(model2)
+sum3 = summary(model3)
+
+kable(round(sum1$coefficients, 3), caption = "Independence", booktabs = TRUE)
+kable(round(sum2$coefficients, 3), caption = "Exchangable", booktabs = TRUE)
+kable(round(sum3$coefficients, 3), caption = "Auto-Correlation 1", booktabs = TRUE)
+```
+
+We see from the above tables that different R assumptions result in different parameter estimates, but the estimates are very similar along with their std. errors. This re-iterates how the method provides consistent estimates of $\beta$ regardless of $R$. From a clinical standpoint, Auto-Correlation Order 1 makes the most sense in this situation, as a pig's weight one week certainly depends on its weight last week, and less so than two weeks ago, and so on. With three types of $R$ that perform similarly, one may ask which one they should pursue for further analysis. While the paper from Liang and Zeger does not answer this question, `geepack` does provide a metric for comparing GEE models, QIC, an AIC analogue. While I won't go into details of it here, as it's not included in the paper of interest, the table below does provide QIC scores for each model.
+
+```{r QIC table, message=FALSE, echo=FALSE, warning=FALSE}
+QIC_df <- data_frame(
+  Model = c('Independence', 'Exchangable', 'Auto-Correlation 1'),
+  QIC = c(QIC(model1)[1], QIC(model2)[2], QIC(model3)[3])
+) 
+
+kable(QIC_df, caption = "QIC for each Model", booktabs = TRUE)
+```
+
+We see auto-correlation to be a clear winner (QIC is not strictly positive, but we still select the lowest value), which aligns with our thoughts above. This concludes the example.
+
+# Conclusions
+
+Reading and coming to understand this paper really helped me come to a better understanding of longitundinal data. Before completing this project, I struggled to conceptualize the matrix size and organization for longitudinal data, but having to translate the familiar quasi-likelihood concepts to a longitudinal case really helped me understand how components expanded into vectors for the longitudinal case. This in turn gave me an even better grasp on non-longitudinal data, as I can now understand it as a longitudinal case with just one time point.
+
+Furthermore, it deeply helped me better understand quasi-likelihood theory. Understanding the quasi-score as sum of mean 0 components with finite variance should have been an obvious pathway to CLT, but it wasn't a connection I fully understood until having to reason out the proof in this paper in my head. It also helped me better understand derivations in which the canonical link function is not used. This paper doesn't mention a canonical link once, and hence forces the reader to understand the entire derivative chain from $\theta$ to $\beta$ to understand the equations. This was helpful as throughout the course I had found myself getting 'bailed out' by canonical links when taking derivatives and not fully understanding the relationship between $\mu$ and $\eta$, the mean and linear predictor.
+
+Finally, I have few closing research questions regarding the paper. First, as mentioned above, how does the estimator perform when estimating the entire matrix $R$? Does this really hamper performance, or provide an intermediate option between assuming structure and independence? This could be the subject of interesting simulation setting research. Secondly, can we break the exponential family marginal distributional assumption? It seems like we can from the context, but the paper explicitly mentions this distributional assumption and details exponential disperision families clearly. Lastly, how do assumptions about correlational structure affect inference in small samples? Does the correct specification of $R$ lend itself greatly in small samples, or is the risk of mispecification and improper estimates too large that independence should be assumed for small samples? I hope to explore GEEs more and possibly have some of these questions answered next quarter in the finale of first year Ph.D. Biostatistics, BST 224: Analysis of **Longitudinal Data**.
+
+\newpage
+
+# Appendix
+
+## Case Study Code
+
+```{r Appendix example setup, eval=FALSE}
+
+library(geepack) # loading the package
+library(dplyr)
+
+prac_df = dietox
+
+prac_df <- prac_df |> # making sure the inital feed value is 0
+  group_by(Pig) |> 
+  mutate(Feed = ifelse(is.na(Feed), 0, Feed)) |> 
+  ungroup()
+
+prac_df$Litter <- as.factor(prac_df$Litter)
+prac_df$Evit <- factor(prac_df$Evit, levels = c('Evit000', 'Evit100', 'Evit200'), ordered = TRUE)
+prac_df$Cu <- factor(prac_df$Cu, levels = c('Cu000', 'Cu035', 'Cu175'), ordered = TRUE)
+
+model1 <- geeglm(
+  Weight ~ Evit + Cu + Feed, 
+  id = Pig, # indicates how to separate observations
+  data = prac_df, # indicates source of data
+  family = Gamma(link = log), # indicates marginal distribution of each y_{it} and the link function
+  corstr = 'independence', # indicates the structure of R matrix, chosen to be independent
+  scale.fix = FALSE) # indicates whether to estimate the dispersion parameter, or assume it to be 1,
+                    #estimated here
+
+model2 <- geeglm(
+  Weight ~ Evit + Cu + Feed, 
+  id = Pig, 
+  data = prac_df, 
+  family = Gamma(link = log), 
+  corstr = 'exch', # R chosen to be exchangable correlation
+  scale.fix = FALSE)
+
+model3 <- geeglm(
+  Weight ~ Evit + Cu + Feed, 
+  id = Pig, 
+  data = prac_df, 
+  family = Gamma(link = log), 
+  corstr = 'ar1', # R chosen to be auto-regressive correlation 1
+  scale.fix = FALSE)
+```
+
+```{r Appendix example results results, eval=FALSE}
+
+library(knitr)
+library(kableExtra)
+
+# making summary tables
+
+sum1 = summary(model1)
+sum2 = summary(model2)
+sum3 = summary(model3)
+
+kable(round(sum1$coefficients, 3), caption = "Independence", booktabs = TRUE)
+kable(round(sum2$coefficients, 3), caption = "Exchangable", booktabs = TRUE)
+kable(round(sum3$coefficients, 3), caption = "Auto-Correlation 1", booktabs = TRUE)
+```
+
+```{r Appendix QIC table, eval=FALSE}
+QIC_df <- data_frame(
+  Model = c('Independence', 'Exchangable', 'Auto-Correlation 1'),
+  QIC = c(QIC(model1)[1], QIC(model2)[2], QIC(model3)[3])
+) 
+
+kable(QIC_df, caption = "QIC for each Model", booktabs = TRUE)
+```
+
+## References
